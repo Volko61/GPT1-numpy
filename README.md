@@ -4,7 +4,7 @@ A tiny, from-scratch NumPy implementation of an OpenAI GPT-1 style language mode
 This project loads a pretrained GPT-1 checkpoint, runs a pure-NumPy forward pass,
 and generates text with a minimal custom tokenizer.
 
-<video src="presentation.mp4"></video>
+<video src="./presentation.mp4"></video>
 
 ## Requirements
 

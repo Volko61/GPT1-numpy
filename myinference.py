@@ -1,11 +1,43 @@
 # 1 find the files                          
 import os
 import json
+import string
+import struct
 from typing import List
 import numpy as np
-from safetensors.numpy import load_file
 
 path = "model"
+
+def load_safetensors(file_path: str):
+    dtype_map = {
+        "F16": np.float16,
+        "F32": np.float32,
+        "F64": np.float64,
+        "I64": np.int64,
+        "I32": np.int32,
+        "I16": np.int16,
+        "I8": np.int8,
+        "U8": np.uint8,
+        "BOOL": np.bool_,
+    }
+
+    with open(file_path, "rb") as f:
+        header_len = struct.unpack("<Q", f.read(8))[0]
+        header = json.loads(f.read(header_len))
+        data = f.read()
+
+    tensors = {}
+    for name, info in header.items():
+        if name == "__metadata__":
+            continue
+        dtype = dtype_map.get(info["dtype"])
+        if dtype is None:
+            raise ValueError(f"Unsupported dtype: {info['dtype']}")
+        start, end = info["data_offsets"]
+        arr = np.frombuffer(data[start:end], dtype=dtype).reshape(info["shape"])
+        tensors[name] = arr
+
+    return tensors
 
 with open(os.path.join(path, "tokenizer.json"), "r", encoding="utf-8") as f:
     tokenizer_config = json.load(f)
@@ -30,8 +62,10 @@ n_heads = config["n_head"]
 head_dim = n_embds // n_heads 
 
 # 2 tokenize                                    -> text to numbers
-def merge(sentence: str) -> List[str]:
+def merge(sentence: str, add_suffix: bool = False) -> List[str]:
     result = list(sentence)
+    if add_suffix and bpe_suffix and result:
+        result[-1] = result[-1] + bpe_suffix
     with open(os.path.join(path, "merges.txt"), "r", encoding="utf-8") as f:
         for rule in f.readlines()[1:]:
             rule = rule[:-1].split(" ")
@@ -48,15 +82,34 @@ def merge(sentence: str) -> List[str]:
     return result
 
 
+def pretokenize(text: str) -> List[str]:
+    tokens = []
+    token = ""
+    for ch in text:
+        if ch.isspace():
+            if token:
+                tokens.append(token)
+                token = ""
+            continue
+        if ch in string.punctuation:
+            if token:
+                tokens.append(token)
+                token = ""
+            tokens.append(ch)
+            continue
+        token += ch
+    if token:
+        tokens.append(token)
+    return tokens
+
+
 def tokens_to_tensor(text: str) -> List[int]:
     if lowercase_flag:
         text = text.lower()
-    if bpe_suffix:
-        text = text.replace(" ", bpe_suffix)
-    tokens = merge(text)
     result = []
-    for token in tokens:
-        result.append(vocab[token])
+    for token in pretokenize(text):
+        for piece in merge(token, add_suffix=True):
+            result.append(vocab.get(piece, unk_id))
 
     return result
 
@@ -71,8 +124,7 @@ def tensor_to_token(tensors: List[int]) -> str:
 # print(tokens_to_tensor(merge("there")))
 
 # 3 embedding                                   -> numbers to ideas
-# Load the weights into a dictionary of numpy arrays
-weights = load_file(os.path.join(path, "model.safetensors"))
+weights = load_safetensors(os.path.join(path, "model.safetensors"))
 def embedding(token_ids: List[int]) -> np.ndarray:
     word_token_embeddings = weights["tokens_embed.weight"]
     word_position_embeddings = weights["positions_embed.weight"]
@@ -101,6 +153,34 @@ def softmax(x):
     probs = np.exp(x - np.max(x, axis=-1, keepdims=True))
     probs /= np.sum(probs, axis=-1, keepdims=True)
     return probs
+
+def sample_next_id(logits, token_ids, temperature=0.7, top_p=0.9, repetition_penalty=1.2):
+    scores = logits.astype(np.float64).copy()
+
+    if repetition_penalty != 1.0:
+        for tid in set(token_ids):
+            if scores[tid] > 0:
+                scores[tid] /= repetition_penalty
+            else:
+                scores[tid] *= repetition_penalty
+
+    if temperature != 1.0:
+        scores = scores / temperature
+
+    probs = softmax(scores)
+    if top_p < 1.0:
+        sorted_ids = np.argsort(probs)[::-1]
+        sorted_probs = probs[sorted_ids]
+        cumulative = np.cumsum(sorted_probs)
+        cutoff = cumulative <= top_p
+        if not np.any(cutoff):
+            cutoff[0] = True
+        kept_ids = sorted_ids[cutoff]
+        kept_probs = probs[kept_ids]
+        kept_probs = kept_probs / np.sum(kept_probs)
+        return int(np.random.choice(kept_ids, p=kept_probs))
+
+    return int(np.random.choice(len(probs), p=probs))
 
 def mha_block(x, l):
     seq_len = x.shape[0]
@@ -154,8 +234,13 @@ def transformer_loop(hidden_states):
 
     return hidden_states
 
-prompt = "In a shocking finding, scientists discovered a herd of unicorns living in a remote, previously unexplored valley, in the Andes Mountains. Even more surprising to the researchers was the fact that the unicorns spoke perfect English."
+prompt = "In a shocking finding, scientists discovered a herd of unicorns living in a remote, previously unexplored valley, in the Andes Mountains. Even more surprising to the researchers was"
+prompt = "God save the "
+temperature = 0.7
+top_p = 0.9
+repetition_penalty = 1.2
 token_ids = tokens_to_tensor(prompt)
+print(prompt)
 for i in range(10):
     hidden_states = transformer_loop(embedding(token_ids))
 
@@ -163,7 +248,9 @@ for i in range(10):
     logits = lm_head(hidden_states)
 
     # 6 sampling                                    -> select the most probable number and convert back to text thanks to tokenizer
-    token_ids.append(int(logits[-1].argmax()))
+    next_id = sample_next_id(logits[-1], token_ids, temperature, top_p, repetition_penalty)
+    token_ids.append(next_id)
     prompt = tensor_to_token(token_ids)
+    print(tensor_to_token([token_ids[-1]]))
 
 print(prompt)

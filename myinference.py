@@ -7,6 +7,18 @@ from safetensors.numpy import load_file
 
 path = "model"
 
+with open(os.path.join(path, "tokenizer.json"), "r", encoding="utf-8") as f:
+    tokenizer_config = json.load(f)
+
+vocab = tokenizer_config["model"]["vocab"]
+id_to_token = {v: k for k, v in vocab.items()}
+unk_token = tokenizer_config["model"].get("unk_token", "<unk>")
+unk_id = vocab.get(unk_token, 0)
+bpe_suffix = tokenizer_config["model"].get("end_of_word_suffix", "")
+
+normalizer_config = tokenizer_config.get("normalizer") or {}
+lowercase_flag = bool(normalizer_config.get("lowercase", False))
+
 with open(os.path.join(path, "config.json"), "r", encoding="utf-8") as f:
     config = json.load(f)
 
@@ -36,27 +48,25 @@ def merge(sentence: str) -> List[str]:
     return result
 
 
-def tokens_to_tensor(tokens: str) -> List[int]:
-    with open(os.path.join(path, "tokenizer.json"), "r", encoding="utf-8") as f:
-        rules = json.load(f)["model"]["vocab"]
-        # print(rules)
-        result = []
-        for token in tokens:
-            result.append(rules[token])
+def tokens_to_tensor(text: str) -> List[int]:
+    if lowercase_flag:
+        text = text.lower()
+    if bpe_suffix:
+        text = text.replace(" ", bpe_suffix)
+    tokens = merge(text)
+    result = []
+    for token in tokens:
+        result.append(vocab[token])
 
     return result
 
 def tensor_to_token(tensors: List[int]) -> str:
-    with open(os.path.join(path, "tokenizer.json"), "r", encoding="utf-8") as f:
-        rules = json.load(f)["model"]["vocab"]
-        # print(rules)
-        result = ""
-        for tensor in tensors:
-            for key, value in rules.items():
-                if value == tensor:
-                    result += key
-
-    return result
+    result = ""
+    for idx in tensors:
+        result += id_to_token[idx]
+    if bpe_suffix:
+        result = result.replace(bpe_suffix, " ")
+    return result.rstrip()
 
 # print(tokens_to_tensor(merge("there")))
 
@@ -128,51 +138,32 @@ def mlp_block(x, l):
 def transformer_loop(hidden_states):
     for l in range(n_layers):
         # Attention
-        ln1_x = layer_norm(hidden_states, weights[f"h.{l}.ln_1.weight"], weights[f"h.{l}.ln_1.bias"])
-        hidden_states = hidden_states + mha_block(ln1_x, l)
+        attn_out = mha_block(hidden_states, l)
+        hidden_states = layer_norm(
+            hidden_states + attn_out,
+            weights[f"h.{l}.ln_1.weight"],
+            weights[f"h.{l}.ln_1.bias"],
+        )
         # MLP
-        ln2_x = layer_norm(hidden_states, weights[f"h.{l}.ln_2.weight"], weights[f"h.{l}.ln_2.bias"])
-        hidden_states = hidden_states + mlp_block(ln2_x, l)
+        mlp_out = mlp_block(hidden_states, l)
+        hidden_states = layer_norm(
+            hidden_states + mlp_out,
+            weights[f"h.{l}.ln_2.weight"],
+            weights[f"h.{l}.ln_2.bias"],
+        )
 
     return hidden_states
 
-prompt = "hi"
+prompt = "In a shocking finding, scientists discovered a herd of unicorns living in a remote, previously unexplored valley, in the Andes Mountains. Even more surprising to the researchers was the fact that the unicorns spoke perfect English."
+token_ids = tokens_to_tensor(prompt)
 for i in range(10):
-    hidden_states = transformer_loop(embedding(tokens_to_tensor(merge(prompt.replace(" ", "</w>")))))
+    hidden_states = transformer_loop(embedding(token_ids))
 
     # 5 projection                                  -> new idea probablities to number probabilities
     logits = lm_head(hidden_states)
 
     # 6 sampling                                    -> select the most probable number and convert back to text thanks to tokenizer
-    prompt += tensor_to_token([logits[-1].argmax()])
+    token_ids.append(int(logits[-1].argmax()))
+    prompt = tensor_to_token(token_ids)
 
 print(prompt)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

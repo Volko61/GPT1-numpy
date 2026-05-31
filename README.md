@@ -64,7 +64,15 @@ In [inference.py](inference.py), you can adjust:
 This is a learning-first, minimal GPT-1 inference walkthrough. The goal is to
 mirror the core model math without hiding details behind large frameworks.
 
-## License
+## Citation Information
+@article{radford2018improving,
+  title={Improving language understanding by generative pre-training},
+  author={Radford, Alec and Narasimhan, Karthik and Salimans, Tim and Sutskever, Ilya and others},
+  year={2018},
+  publisher={OpenAI}
+}
 
-Use it for learning and personal experiments. If you redistribute the model
-files, make sure you have the right to do so.
+APA: Radford, A., Narasimhan, K., Salimans, T., & Sutskever, I. (2018). Improving language understanding by generative pre-training.
+
+## License
+MIT

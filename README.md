@@ -15,7 +15,7 @@ The goal is to keep the code short and readable while showing the full inference
 
 ## Project layout
 
-- [inference.py](inference.py): single-file inference script
+- [main.py](main.py): single-file inference script
 - [model/](model/): GPT-1 checkpoint and tokenizer assets
   - config.json
   - merges.txt
@@ -37,7 +37,7 @@ pip install numpy
 ## Run
 
 ```bash
-python .\inference.py
+python .\main.py
 ```
 
 The script prints each generated token and then the final combined text.
@@ -52,7 +52,7 @@ The script prints each generated token and then the final combined text.
 
 ## Tuning generation
 
-In [inference.py](inference.py), you can adjust:
+In [main.py](main.py), you can adjust:
 
 - `temperature`
 - `top_p`

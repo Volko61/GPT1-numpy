@@ -5,7 +5,7 @@ from typing import List
 import numpy as np
 from safetensors.numpy import load_file
 
-path = "C:\\Users\\volko\\.cache\\huggingface\\hub\\models--openai-gpt\\snapshots\\1e0d4f3028acbffb47fe933cea64619c5ec1a002"
+path = "model"
 
 with open(os.path.join(path, "config.json"), "r", encoding="utf-8") as f:
     config = json.load(f)

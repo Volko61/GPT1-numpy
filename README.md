@@ -4,24 +4,7 @@ A tiny, from-scratch NumPy implementation of an OpenAI GPT-1 style language mode
 This project loads a pretrained GPT-1 checkpoint, runs a pure-NumPy forward pass,
 and generates text with a minimal custom tokenizer.
 
-The goal is to keep the code short and readable while showing the full inference path:
-
-- Custom BPE-ish tokenizer (no external tokenizer library)
-- Token + position embeddings
-- Multi-head self-attention
-- MLP blocks
-- Post-LayerNorm GPT-1 block order
-- Simple top-p sampling with temperature and repetition penalty
-
-## Project layout
-
-- [main.py](main.py): single-file inference script
-- [model/](model/): GPT-1 checkpoint and tokenizer assets
-  - config.json
-  - merges.txt
-  - model.safetensors
-  - tokenizer.json
-  - vocab.json
+<video src="presentation.mp4"></video>
 
 ## Requirements
 
@@ -41,6 +24,25 @@ python .\main.py
 ```
 
 The script prints each generated token and then the final combined text.
+
+The goal is to keep the code short and readable while showing the full inference path:
+
+- Custom BPE-ish tokenizer (no external tokenizer library)
+- Token + position embeddings
+- Multi-head self-attention
+- MLP blocks
+- Post-LayerNorm GPT-1 block order
+- Simple top-p sampling with temperature and repetition penalty
+
+## Project layout
+
+- [main.py](main.py): single-file inference script
+- [model/](model/): GPT-1 checkpoint and tokenizer assets
+  - config.json
+  - merges.txt
+  - model.safetensors
+  - tokenizer.json
+  - vocab.json
 
 ## Notes
 

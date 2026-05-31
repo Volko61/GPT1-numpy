@@ -1,4 +1,4 @@
-# MyInference
+# GPT1-numpy
 
 A tiny, from-scratch NumPy implementation of an OpenAI GPT-1 style language model.
 This project loads a pretrained GPT-1 checkpoint, runs a pure-NumPy forward pass,
@@ -15,7 +15,7 @@ The goal is to keep the code short and readable while showing the full inference
 
 ## Project layout
 
-- [myinference.py](myinference.py): single-file inference script
+- [inference.py](inference.py): single-file inference script
 - [model/](model/): GPT-1 checkpoint and tokenizer assets
   - config.json
   - merges.txt
@@ -37,7 +37,7 @@ pip install numpy
 ## Run
 
 ```bash
-python .\myinference.py
+python .\inference.py
 ```
 
 The script prints each generated token and then the final combined text.
@@ -52,7 +52,7 @@ The script prints each generated token and then the final combined text.
 
 ## Tuning generation
 
-In [myinference.py](myinference.py), you can adjust:
+In [inference.py](inference.py), you can adjust:
 
 - `temperature`
 - `top_p`
